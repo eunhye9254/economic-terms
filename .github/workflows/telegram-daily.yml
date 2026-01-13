@@ -1,0 +1,69 @@
+name: Daily Economic Terms
+
+on:
+  schedule:
+    - cron: '0 23 * * *'
+  workflow_dispatch:
+
+jobs:
+  send-daily-terms:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Send Daily Terms to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
+        run: |
+          node << 'SCRIPT'
+          const https = require('https');
+          const fs = require('fs');
+          
+          const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+          const CHANNEL = process.env.TELEGRAM_CHANNEL;
+          
+          const terms = JSON.parse(fs.readFileSync('./terms.json', 'utf8'));
+          
+          const START_DATE = new Date('2025-01-01');
+          const today = new Date();
+          const diffDays = Math.floor((today - START_DATE) / (1000 * 60 * 60 * 24));
+          const currentDay = (diffDays % Math.ceil(terms.length / 4)) + 1;
+          
+          const startIdx = (currentDay - 1) * 4;
+          const todayTerms = terms.slice(startIdx, startIdx + 4);
+          
+          const termsList = todayTerms.map((t, i) => {
+            const emoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'][i];
+            const simple = t.simpleExplanation || t.definition || '';
+            return emoji + ' <b>' + t.term + '</b>\n' + simple;
+          }).join('\n\n');
+          
+          const message = '📚 <b>오늘의 경제금융용어 (Day ' + currentDay + ')</b>\n━━━━━━━━━━━━━━━━━━━━\n\n' + termsList + '\n\n━━━━━━━━━━━━━━━━━━━━\n\n👉 <a href="https://basic-economic-vocab.netlify.app/?day=' + currentDay + '">자세히 학습하기</a>';
+          
+          const data = JSON.stringify({
+            chat_id: CHANNEL,
+            text: message,
+            parse_mode: 'HTML'
+          });
+          
+          const req = https.request({
+            hostname: 'api.telegram.org',
+            path: '/bot' + BOT_TOKEN + '/sendMessage',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          }, res => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => console.log(JSON.parse(body).ok ? '✅ 발송 성공!' : '❌ 실패'));
+          });
+          req.write(data);
+          req.end();
+          SCRIPT
