@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>경제금융용어 학습</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #eee; min-height: 100vh; }
+    
+    .header { background: rgba(0,0,0,0.3); padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.1); position: sticky; top: 0; z-index: 100; }
+    .header-inner { max-width: 900px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+    .title { font-size: 1.4rem; background: linear-gradient(90deg, #00d4ff, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .subtitle { font-size: 0.8rem; color: #888; margin-top: 4px; }
+    .header-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .user-info { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+    .user-photo { width: 32px; height: 32px; border-radius: 50%; }
+    .user-name { color: #ccc; }
+    .auth-btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.85rem; }
+    .logout-btn { background: rgba(255,255,255,0.1); color: #ccc; }
+    .logout-btn:hover { background: rgba(255,255,255,0.2); }
+    .progress-box { min-width: 150px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: #888; }
+    .progress-bar { background: rgba(255,255,255,0.1); border-radius: 8px; height: 8px; overflow: hidden; margin-top: 6px; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #00c853, #00e676); transition: width 0.5s; }
+    
+    .streak-box { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: rgba(255,150,0,0.15); border: 1px solid rgba(255,150,0,0.3); border-radius: 20px; }
+    .streak-fire { font-size: 1.2rem; }
+    .streak-info { display: flex; flex-direction: column; }
+    .streak-count { font-size: 0.9rem; font-weight: 700; color: #ff9800; }
+    .streak-best { font-size: 0.65rem; color: #888; }
+    
+    .tabs { display: flex; background: rgba(0,0,0,0.2); padding: 0 24px; overflow-x: auto; }
+    .tab { padding: 14px 20px; background: none; border: none; border-bottom: 2px solid transparent; color: #888; cursor: pointer; font-size: 0.9rem; white-space: nowrap; }
+    .tab.active { border-bottom-color: #00d4ff; color: #00d4ff; }
+    
+    main { max-width: 900px; margin: 0 auto; padding: 24px; }
+    
+    .login-screen { text-align: center; padding: 80px 20px; }
+    .login-icon { font-size: 4rem; margin-bottom: 24px; }
+    .login-title { font-size: 1.8rem; margin-bottom: 12px; }
+    .login-desc { color: #888; margin-bottom: 32px; line-height: 1.6; }
+    .google-login-btn { padding: 14px 32px; background: white; color: #333; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; display: inline-flex; align-items: center; gap: 12px; }
+    .google-login-btn:hover { background: #f1f1f1; }
+    .google-logo { width: 20px; height: 20px; }
+    
+    .day-select-header { text-align: center; margin-bottom: 32px; }
+    .day-select-header h2 { font-size: 1.5rem; margin-bottom: 8px; }
+    .day-select-header p { color: #888; }
+    .day-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; }
+    .day-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
+    .day-card:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+    .day-card.completed { border-color: rgba(0,200,83,0.5); background: rgba(0,200,83,0.1); }
+    .day-number { font-size: 1.3rem; font-weight: 700; color: #00d4ff; margin-bottom: 8px; }
+    .day-card.completed .day-number { color: #00c853; }
+    .day-terms { font-size: 0.7rem; color: #888; line-height: 1.4; height: 40px; overflow: hidden; }
+    .day-stamp { position: absolute; top: -8px; right: -8px; width: 36px; height: 36px; background: #00c853; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: 0 2px 8px rgba(0,200,83,0.4); }
+    .day-progress { margin-top: 10px; font-size: 0.75rem; color: #666; }
+    .day-card.completed .day-progress { color: #00c853; }
+    
+    .day-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .nav-btn { padding: 10px 20px; background: rgba(0,212,255,0.15); border: 1px solid rgba(0,212,255,0.3); border-radius: 8px; color: #00d4ff; cursor: pointer; font-size: 0.9rem; }
+    .nav-btn:disabled { background: rgba(255,255,255,0.05); color: #555; cursor: default; border-color: rgba(255,255,255,0.1); }
+    .back-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #aaa; }
+    .back-btn:hover { background: rgba(255,255,255,0.15); }
+    .day-title { text-align: center; }
+    .day-title h2 { font-size: 1.6rem; margin-bottom: 4px; }
+    .day-title p { font-size: 0.85rem; color: #888; }
+    
+    .card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; margin-bottom: 16px; overflow: hidden; }
+    .card.learned { border-color: rgba(0,255,100,0.4); }
+    .card.bookmarked { border-color: rgba(255,215,0,0.5); }
+    .card-header { padding: 18px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .card-header:hover { background: rgba(255,255,255,0.03); }
+    .card-left { display: flex; align-items: center; gap: 14px; }
+    .card-num { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 0.9rem; }
+    .card-term { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; }
+    .card-category { font-size: 0.7rem; color: #888; background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 4px; display: inline-block; }
+    .card-right { display: flex; align-items: center; gap: 10px; }
+    .badge-done { background: rgba(0,200,83,0.2); color: #00c853; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; }
+    .badge-bookmark { background: rgba(255,215,0,0.2); color: #ffd700; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; }
+    .arrow { color: #888; transition: transform 0.3s; font-size: 0.8rem; }
+    .arrow.open { transform: rotate(180deg); }
+    
+    .card-body { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); display: none; }
+    .card-body.open { display: block; }
+    
+    .section { margin-bottom: 20px; }
+    .section:last-child { margin-bottom: 0; }
+    .section-title { margin-bottom: 10px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+    .section-text { font-size: 0.95rem; line-height: 1.8; color: #ccc; white-space: pre-line; }
+    
+    .highlight-box { padding: 14px; border-radius: 10px; }
+    .bg-yellow { background: rgba(251,191,36,0.1); border-left: 3px solid #fbbf24; }
+    .bg-pink { background: rgba(244,114,182,0.1); }
+    
+    .color-blue { color: #00d4ff; }
+    .color-yellow { color: #fbbf24; }
+    .color-green { color: #34d399; }
+    .color-pink { color: #f472b6; }
+    .color-orange { color: #fb923c; }
+    .color-purple { color: #a78bfa; }
+    
+    .flow-box { background: rgba(124,58,237,0.1); border-radius: 12px; padding: 16px; }
+    .flow-title { font-size: 0.95rem; color: #a78bfa; margin-bottom: 12px; font-weight: 600; }
+    .flow-steps { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .flow-step { background: rgba(124,58,237,0.3); padding: 8px 14px; border-radius: 20px; font-size: 0.85rem; }
+    .flow-arrow { color: #a78bfa; }
+    .flow-insight { margin-top: 12px; font-size: 0.85rem; color: #a78bfa; font-style: italic; }
+    
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag { background: rgba(124,58,237,0.2); color: #a78bfa; padding: 4px 12px; border-radius: 16px; font-size: 0.8rem; }
+    
+    .card-actions { display: flex; gap: 12px; margin-top: 20px; }
+    .learn-btn { flex: 1; padding: 14px; background: linear-gradient(90deg, #00c853, #00e676); border: none; border-radius: 10px; color: #000; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    .learn-btn:hover { opacity: 0.9; }
+    .bookmark-btn { padding: 14px 20px; background: rgba(255,215,0,0.15); border: 1px solid rgba(255,215,0,0.3); border-radius: 10px; color: #ffd700; font-size: 1rem; cursor: pointer; transition: all 0.2s; }
+    .bookmark-btn:hover { background: rgba(255,215,0,0.25); }
+    .bookmark-btn.active { background: rgba(255,215,0,0.3); border-color: #ffd700; }
+    
+    .quiz-box { background: rgba(255,255,255,0.05); border-radius: 16px; padding: 32px; max-width: 600px; margin: 0 auto; }
+    .quiz-center { text-align: center; padding: 40px 0; }
+    .quiz-icon { font-size: 3.5rem; margin-bottom: 16px; }
+    .quiz-title { font-size: 1.4rem; margin-bottom: 10px; }
+    .quiz-info { color: #888; margin-bottom: 20px; }
+    .quiz-count { color: #00d4ff; margin-bottom: 24px; }
+    .quiz-label { color: #00d4ff; font-size: 0.9rem; margin-bottom: 16px; }
+    .quiz-question { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; line-height: 1.7; margin-bottom: 24px; }
+    .quiz-option { display: block; width: 100%; padding: 16px; margin: 8px 0; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #eee; font-size: 1rem; text-align: left; cursor: pointer; }
+    .quiz-option:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
+    .quiz-option.correct { background: rgba(0,200,83,0.2); border: 2px solid #00c853; }
+    .quiz-option.wrong { background: rgba(255,50,50,0.2); border: 2px solid #f44; }
+    .quiz-option:disabled { cursor: default; }
+    .quiz-result { margin-top: 20px; font-size: 1.2rem; text-align: center; }
+    .quiz-next { margin-top: 12px; padding: 10px 24px; background: rgba(0,212,255,0.2); border: 1px solid #00d4ff; border-radius: 8px; color: #00d4ff; cursor: pointer; }
+    .quiz-end { margin-top: 20px; width: 100%; padding: 12px; background: none; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #888; cursor: pointer; }
+    
+    .search-input { width: 100%; padding: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: #fff; font-size: 1rem; margin-bottom: 20px; }
+    .search-input::placeholder { color: #666; }
+    .search-count { color: #888; margin-bottom: 16px; }
+    .search-item { padding: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 12px; }
+    .search-item-header { display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center; }
+    .search-item-title { font-size: 1rem; font-weight: 600; }
+    .search-item-desc { font-size: 0.9rem; color: #888; line-height: 1.5; }
+    
+    .wordlist-header { margin-bottom: 20px; }
+    .filter-btns { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-btn { padding: 10px 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; color: #888; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+    .filter-btn:hover { background: rgba(255,255,255,0.1); }
+    .filter-btn.active { background: rgba(0,212,255,0.2); border-color: #00d4ff; color: #00d4ff; }
+    .filter-btn.bookmark-filter.active { background: rgba(255,215,0,0.2); border-color: #ffd700; color: #ffd700; }
+    .wordlist-count { color: #888; font-size: 0.9rem; }
+    .wordlist-item { padding: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; }
+    .wordlist-item:hover { background: rgba(255,255,255,0.08); }
+    .wordlist-item.completed { border-left: 3px solid #00c853; }
+    .wordlist-item.incomplete { border-left: 3px solid #888; }
+    .wordlist-item.bookmarked-item { border-left: 3px solid #ffd700; }
+    .wordlist-item-header { display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center; gap: 8px; }
+    .wordlist-item-title { font-size: 1rem; font-weight: 600; }
+    .wordlist-item-badges { display: flex; gap: 6px; }
+    .wordlist-item-status { font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; }
+    .wordlist-item-status.done { background: rgba(0,200,83,0.2); color: #00c853; }
+    .wordlist-item-status.notdone { background: rgba(255,255,255,0.1); color: #888; }
+    .wordlist-item-status.bookmarked { background: rgba(255,215,0,0.2); color: #ffd700; }
+    .wordlist-item-desc { font-size: 0.85rem; color: #888; line-height: 1.5; }
+    .wordlist-item-day { font-size: 0.75rem; color: #00d4ff; margin-top: 8px; }
+    
+    /* 카테고리 섹션 스타일 */
+    .category-header { text-align: center; margin-bottom: 24px; }
+    .category-header h2 { font-size: 1.5rem; margin-bottom: 8px; }
+    .category-header p { color: #888; }
+    .category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .category-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .category-card:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+    .category-card.active { background: rgba(0,212,255,0.15); border-color: #00d4ff; }
+    .category-icon { font-size: 1.8rem; margin-bottom: 8px; }
+    .category-name { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
+    .category-count { font-size: 0.75rem; color: #888; }
+    .category-progress { margin-top: 8px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+    .category-progress-fill { height: 100%; background: linear-gradient(90deg, #00c853, #00e676); }
+    
+    .category-list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .category-list-title { font-size: 1.2rem; font-weight: 600; }
+    .category-back-btn { padding: 8px 16px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #aaa; cursor: pointer; font-size: 0.85rem; }
+    .category-back-btn:hover { background: rgba(255,255,255,0.15); }
+    
+    /* 북마크 섹션 스타일 */
+    .bookmark-header { text-align: center; margin-bottom: 24px; }
+    .bookmark-header h2 { font-size: 1.5rem; margin-bottom: 8px; color: #ffd700; }
+    .bookmark-header p { color: #888; }
+    .bookmark-empty { text-align: center; padding: 60px 20px; color: #888; }
+    .bookmark-empty-icon { font-size: 3rem; margin-bottom: 16px; }
+    
+    footer { text-align: center; padding: 24px; color: #666; font-size: 0.8rem; border-top: 1px solid rgba(255,255,255,0.1); }
+    
+    .loading { text-align: center; padding: 60px; color: #888; }
+    .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #00d4ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div>
+        <h1 class="title">💰 경제금융용어 학습</h1>
+        <p class="subtitle">초보자를 위한 상세 설명 + 경제 흐름</p>
+      </div>
+      <div class="header-right">
+        <div id="userArea"></div>
+        <div class="streak-box" id="streakBox" style="display:none">
+          <span class="streak-fire">🔥</span>
+          <div class="streak-info">
+            <span class="streak-count" id="streakCount">0일 연속</span>
+            <span class="streak-best" id="streakBest">최장 0일</span>
+          </div>
+        </div>
+        <div class="progress-box" id="progressBox" style="display:none">
+          <div class="progress-label">
+            <span>전체 진도</span>
+            <span id="progressPercent">0%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabsContainer" style="display:none">
+    <button class="tab active" id="tabLearn">📚 학습하기</button>
+    <button class="tab" id="tabCategory">📂 카테고리</button>
+    <button class="tab" id="tabBookmark">⭐ 북마크</button>
+    <button class="tab" id="tabWordList">📋 내 단어장</button>
+    <button class="tab" id="tabQuiz">✏️ 퀴즈</button>
+    <button class="tab" id="tabSearch">🔍 검색</button>
+  </div>
+
+  <main>
+    <div id="loginScreen">
+      <div class="login-screen">
+        <div class="login-icon">📚</div>
+        <h2 class="login-title">경제금융용어 학습</h2>
+        <p class="login-desc">Google 계정으로 로그인하면<br>학습 진도가 자동으로 저장됩니다.</p>
+        <button class="google-login-btn" id="googleLoginBtn">
+          <svg class="google-logo" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Google로 로그인
+        </button>
+      </div>
+    </div>
+
+    <div id="appContainer" style="display:none">
+      <div id="daySelectSection">
+        <div class="day-select-header">
+          <h2>📅 학습할 Day를 선택하세요</h2>
+          <p>하루 4개 용어씩 학습해요</p>
+        </div>
+        <div class="day-grid" id="dayGrid">
+          <div class="loading"><div class="spinner"></div><p>불러오는 중...</p></div>
+        </div>
+      </div>
+
+      <div id="learnSection" class="hidden">
+        <div class="day-nav">
+          <button class="nav-btn back-btn" id="backToDaysBtn">← Day 목록</button>
+          <div class="day-title">
+            <h2 id="dayTitle">Day 1</h2>
+            <p id="dayCount">0개 용어</p>
+          </div>
+          <button class="nav-btn" id="nextDayBtn">다음 Day →</button>
+        </div>
+        <div id="cardsContainer"></div>
+      </div>
+
+      <!-- 카테고리 섹션 -->
+      <div id="categorySection" class="hidden">
+        <div id="categoryGridView">
+          <div class="category-header">
+            <h2>📂 카테고리별 학습</h2>
+            <p>원하는 분야를 선택해서 학습하세요</p>
+          </div>
+          <div class="category-grid" id="categoryGrid"></div>
+        </div>
+        <div id="categoryListView" class="hidden">
+          <div class="category-list-header">
+            <span class="category-list-title" id="categoryListTitle">카테고리명</span>
+            <button class="category-back-btn" id="categoryBackBtn">← 카테고리 목록</button>
+          </div>
+          <div id="categoryListResults"></div>
+        </div>
+      </div>
+
+      <!-- 북마크 섹션 -->
+      <div id="bookmarkSection" class="hidden">
+        <div class="bookmark-header">
+          <h2>⭐ 북마크한 용어</h2>
+          <p>중요한 용어를 모아서 복습하세요</p>
+        </div>
+        <div id="bookmarkResults"></div>
+      </div>
+
+      <div id="quizSection" class="hidden">
+        <div class="quiz-box"><div id="quizContent"></div></div>
+      </div>
+
+      <div id="searchSection" class="hidden">
+        <input type="text" class="search-input" placeholder="용어 또는 설명 검색..." id="searchInput">
+        <p class="search-count" id="searchCount"></p>
+        <div id="searchResults"></div>
+      </div>
+
+      <div id="wordListSection" class="hidden">
+        <div class="wordlist-header">
+          <div class="filter-btns">
+            <button class="filter-btn active" data-filter="all">전체</button>
+            <button class="filter-btn" data-filter="completed">✓ 학습완료</button>
+            <button class="filter-btn" data-filter="incomplete">○ 미학습</button>
+            <button class="filter-btn bookmark-filter" data-filter="bookmarked">⭐ 북마크</button>
+          </div>
+          <p class="wordlist-count" id="wordListCount"></p>
+        </div>
+        <div id="wordListResults"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer>출처: 한국은행 「경제금융용어 700선」 (2024)</footer>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyA1JqzYJ_pODEKOikJmOWv09np66d1_e84",
+      authDomain: "basic-economic-terms.firebaseapp.com",
+      projectId: "basic-economic-terms",
+      storageBucket: "basic-economic-terms.firebasestorage.app",
+      messagingSenderId: "533185962456",
+      appId: "1:533185962456:web:b0ab0258078848170ed2ad"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser = null;
+    let allTerms = [];
+    let currentDay = 1;
+    let totalDays = 1;
+    let progress = {};
+    let bookmarks = {}; // 북마크 데이터
+    let expandedId = null;
+    let quizData = null;
+    let currentView = 'daySelect';
+    let wordListFilter = 'all';
+    let streakData = { currentStreak: 0, longestStreak: 0, lastStudyDate: null };
+    let selectedCategory = null;
+
+    // 카테고리 아이콘 매핑
+    const categoryIcons = {
+      '금융': '🏦', '금융시장': '📊', '금융상품': '💳', '통화': '💵', '통화정책': '🏛️',
+      '통화이론': '📖', '경제원리': '📈', '경제이론': '🎓', '경제정책': '📋', '국제금융': '🌍',
+      '국제수지': '⚖️', '외환': '💱', '채권': '📜', '주식': '📉', '증권': '📑',
+      '결제': '💸', '결제시스템': '🔄', '결제인프라': '🖥️', '무역': '🚢', '무역금융': '🏭',
+      '재정': '🏢', '세금': '💰', '국민계정': '📊', '금융규제': '⚠️', '금융감독': '👁️',
+      '금융안정': '🛡️', '리스크': '⚡', '산업분석': '🔬', '통계': '📉', '경기지표': '📊',
+      '화폐': '🪙', '환율': '💹', '인프라': '🏗️', '경영': '👔', '국제기구': '🌐',
+      '국제규범': '📝', '중앙은행': '🏛️', '구조화상품': '🧩', '채권발행': '📄', '금융발전': '🚀',
+      '금융구조': '🏛️', '금융인프라': '⚙️', '환경경제': '🌱'
+    };
+
+    auth.onAuthStateChanged(async (user) => {
+      currentUser = user;
+      if (user) {
+        showApp();
+        await loadUserProgress();
+        await loadTerms();
+      } else {
+        showLogin();
+      }
+    });
+
+    function showLogin() {
+      document.getElementById('loginScreen').style.display = 'block';
+      document.getElementById('appContainer').style.display = 'none';
+      document.getElementById('tabsContainer').style.display = 'none';
+      document.getElementById('progressBox').style.display = 'none';
+      document.getElementById('streakBox').style.display = 'none';
+      document.getElementById('userArea').innerHTML = '';
+    }
+
+    function showApp() {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('appContainer').style.display = 'block';
+      document.getElementById('tabsContainer').style.display = 'flex';
+      document.getElementById('progressBox').style.display = 'block';
+      document.getElementById('streakBox').style.display = 'flex';
+      
+      document.getElementById('userArea').innerHTML = `
+        <div class="user-info">
+          <img class="user-photo" src="${currentUser.photoURL || ''}" alt="" onerror="this.style.display='none'">
+          <span class="user-name">${currentUser.displayName || currentUser.email}</span>
+          <button class="auth-btn logout-btn" id="resetProgressBtn" style="background:rgba(244,67,54,0.2);color:#f44;">초기화</button>
+          <button class="auth-btn logout-btn" id="logoutBtn">로그아웃</button>
+        </div>
+      `;
+    }
+
+    document.getElementById('googleLoginBtn').addEventListener('click', async () => {
+      try {
+        await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+      } catch (err) {
+        alert('로그인 실패: ' + err.message);
+      }
+    });
+
+    document.getElementById('userArea').addEventListener('click', async (e) => {
+      if (e.target.id === 'logoutBtn') auth.signOut();
+      if (e.target.id === 'resetProgressBtn') {
+        if (confirm('정말 모든 학습 진도를 초기화하시겠어요?\n이 작업은 되돌릴 수 없습니다.')) {
+          progress = {};
+          bookmarks = {};
+          streakData = { currentStreak: 0, longestStreak: 0, lastStudyDate: null };
+          await saveProgress();
+          alert('진도가 초기화되었습니다!');
+          if (currentView === 'learning') {
+            renderCards();
+          } else {
+            renderDayGrid();
+          }
+        }
+      }
+    });
+
+    async function loadUserProgress() {
+      if (!currentUser) return;
+      try {
+        const doc = await db.collection('users').doc(currentUser.uid).get();
+        if (doc.exists) {
+          const data = doc.data();
+          progress = data.progress || {};
+          bookmarks = data.bookmarks || {};
+          streakData = {
+            currentStreak: data.currentStreak || 0,
+            longestStreak: data.longestStreak || 0,
+            lastStudyDate: data.lastStudyDate || null
+          };
+          checkStreakOnLoad();
+        } else {
+          progress = {};
+          bookmarks = {};
+          streakData = { currentStreak: 0, longestStreak: 0, lastStudyDate: null };
+        }
+        updateStreakUI();
+      } catch (err) {
+        console.error('진도 불러오기 실패:', err);
+        progress = {};
+        bookmarks = {};
+        streakData = { currentStreak: 0, longestStreak: 0, lastStudyDate: null };
+      }
+    }
+
+    function getToday() {
+      return new Date().toISOString().split('T')[0];
+    }
+
+    function getYesterday() {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return d.toISOString().split('T')[0];
+    }
+
+    function checkStreakOnLoad() {
+      const today = getToday();
+      const yesterday = getYesterday();
+      
+      if (streakData.lastStudyDate && 
+          streakData.lastStudyDate !== today && 
+          streakData.lastStudyDate !== yesterday) {
+        streakData.currentStreak = 0;
+      }
+    }
+
+    function updateStreakOnComplete() {
+      const today = getToday();
+      const yesterday = getYesterday();
+      
+      if (streakData.lastStudyDate === today) {
+        return false;
+      }
+      
+      if (streakData.lastStudyDate === yesterday) {
+        streakData.currentStreak += 1;
+      } else if (streakData.lastStudyDate !== today) {
+        streakData.currentStreak = 1;
+      }
+      
+      if (streakData.currentStreak > streakData.longestStreak) {
+        streakData.longestStreak = streakData.currentStreak;
+      }
+      
+      streakData.lastStudyDate = today;
+      return true;
+    }
+
+    function updateStreakUI() {
+      document.getElementById('streakCount').textContent = streakData.currentStreak + '일 연속';
+      document.getElementById('streakBest').textContent = '최장 ' + streakData.longestStreak + '일';
+    }
+
+    async function saveProgress() {
+      if (!currentUser) return;
+      try {
+        await db.collection('users').doc(currentUser.uid).set({
+          progress: progress,
+          bookmarks: bookmarks,
+          currentStreak: streakData.currentStreak,
+          longestStreak: streakData.longestStreak,
+          lastStudyDate: streakData.lastStudyDate,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (err) {
+        console.error('진도 저장 실패:', err);
+      }
+      updateProgressBar();
+      updateStreakUI();
+      renderDayGrid();
+    }
+
+    function updateProgressBar() {
+      const pct = allTerms.length > 0 ? Math.round((Object.keys(progress).length / allTerms.length) * 100) : 0;
+      document.getElementById('progressPercent').textContent = pct + '%';
+      document.getElementById('progressFill').style.width = pct + '%';
+    }
+
+    async function loadTerms() {
+      try {
+        const response = await fetch('https://raw.githubusercontent.com/eunhye9254/economic-terms/main/terms.json');
+        if (!response.ok) throw new Error('데이터를 불러올 수 없습니다');
+        const terms = await response.json();
+        allTerms = terms.map(term => ({ docId: String(term.id), ...term }));
+        
+        if (allTerms.length === 0) {
+          document.getElementById('dayGrid').innerHTML = '<div class="loading"><p>📭 등록된 용어가 없습니다.</p></div>';
+          return;
+        }
+        
+        totalDays = Math.ceil(allTerms.length / 4);
+        renderDayGrid();
+        updateProgressBar();
+        renderSearch('');
+        renderCategoryGrid();
+      } catch (err) {
+        document.getElementById('dayGrid').innerHTML = '<div class="loading"><p>⚠️ 불러오기 실패: ' + err.message + '</p></div>';
+      }
+    }
+
+    // 카테고리 관련 함수들
+    function getCategories() {
+      const categoryMap = {};
+      allTerms.forEach(term => {
+        const cat = term.category || '일반';
+        if (!categoryMap[cat]) {
+          categoryMap[cat] = { terms: [], completed: 0 };
+        }
+        categoryMap[cat].terms.push(term);
+        if (progress[term.docId]) {
+          categoryMap[cat].completed++;
+        }
+      });
+      return categoryMap;
+    }
+
+    function renderCategoryGrid() {
+      const categories = getCategories();
+      const sortedCats = Object.entries(categories).sort((a, b) => b[1].terms.length - a[1].terms.length);
+      
+      document.getElementById('categoryGrid').innerHTML = sortedCats.map(([cat, data]) => {
+        const icon = categoryIcons[cat] || '📁';
+        const progressPct = data.terms.length > 0 ? Math.round((data.completed / data.terms.length) * 100) : 0;
+        
+        return `
+          <div class="category-card" data-category="${cat}">
+            <div class="category-icon">${icon}</div>
+            <div class="category-name">${cat}</div>
+            <div class="category-count">${data.terms.length}개 용어</div>
+            <div class="category-progress">
+              <div class="category-progress-fill" style="width:${progressPct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderCategoryList(category) {
+      const categories = getCategories();
+      const data = categories[category];
+      if (!data) return;
+      
+      document.getElementById('categoryListTitle').textContent = `${categoryIcons[category] || '📁'} ${category} (${data.terms.length}개)`;
+      
+      document.getElementById('categoryListResults').innerHTML = data.terms.map(t => {
+        const termIndex = allTerms.findIndex(at => at.docId === t.docId);
+        const dayNum = Math.floor(termIndex / 4) + 1;
+        const isCompleted = progress[t.docId];
+        const isBookmarked = bookmarks[t.docId];
+        
+        return `
+          <div class="wordlist-item ${isCompleted ? 'completed' : 'incomplete'} ${isBookmarked ? 'bookmarked-item' : ''}" data-docid="${t.docId}" data-day="${dayNum}">
+            <div class="wordlist-item-header">
+              <span class="wordlist-item-title">${t.term}</span>
+              <div class="wordlist-item-badges">
+                ${isBookmarked ? '<span class="wordlist-item-status bookmarked">⭐</span>' : ''}
+                <span class="wordlist-item-status ${isCompleted ? 'done' : 'notdone'}">${isCompleted ? '✓ 학습완료' : '○ 미학습'}</span>
+              </div>
+            </div>
+            <p class="wordlist-item-desc">${t.simpleExplanation || t.definition || ''}</p>
+            <p class="wordlist-item-day">📍 Day ${dayNum}</p>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 북마크 관련 함수
+    function toggleBookmark(termId) {
+      if (bookmarks[termId]) {
+        delete bookmarks[termId];
+      } else {
+        bookmarks[termId] = true;
+      }
+      saveProgress();
+    }
+
+    function renderBookmarks() {
+      const bookmarkedTerms = allTerms.filter(t => bookmarks[t.docId]);
+      
+      if (bookmarkedTerms.length === 0) {
+        document.getElementById('bookmarkResults').innerHTML = `
+          <div class="bookmark-empty">
+            <div class="bookmark-empty-icon">⭐</div>
+            <p>북마크한 용어가 없습니다.</p>
+            <p style="margin-top:8px;font-size:0.85rem;">학습 중 ⭐ 버튼을 눌러 북마크하세요!</p>
+          </div>
+        `;
+        return;
+      }
+      
+      document.getElementById('bookmarkResults').innerHTML = bookmarkedTerms.map(t => {
+        const termIndex = allTerms.findIndex(at => at.docId === t.docId);
+        const dayNum = Math.floor(termIndex / 4) + 1;
+        const isCompleted = progress[t.docId];
+        
+        return `
+          <div class="wordlist-item ${isCompleted ? 'completed' : 'incomplete'} bookmarked-item" data-docid="${t.docId}" data-day="${dayNum}">
+            <div class="wordlist-item-header">
+              <span class="wordlist-item-title">${t.term}</span>
+              <div class="wordlist-item-badges">
+                <span class="wordlist-item-status bookmarked">⭐</span>
+                <span class="wordlist-item-status ${isCompleted ? 'done' : 'notdone'}">${isCompleted ? '✓ 학습완료' : '○ 미학습'}</span>
+              </div>
+            </div>
+            <p class="wordlist-item-desc">${t.simpleExplanation || t.definition || ''}</p>
+            <p class="wordlist-item-day">📍 Day ${dayNum} · ${t.category || '일반'}</p>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function isDayCompleted(dayNumber) {
+      const startIdx = (dayNumber - 1) * 4;
+      const dayTerms = allTerms.slice(startIdx, startIdx + 4);
+      return dayTerms.length > 0 && dayTerms.every(term => progress[term.docId]);
+    }
+
+    function getDayProgress(dayNumber) {
+      const startIdx = (dayNumber - 1) * 4;
+      const dayTerms = allTerms.slice(startIdx, startIdx + 4);
+      const completed = dayTerms.filter(term => progress[term.docId]).length;
+      return { completed, total: dayTerms.length };
+    }
+
+    function getDayTermsPreview(dayNumber) {
+      const startIdx = (dayNumber - 1) * 4;
+      return allTerms.slice(startIdx, startIdx + 4).map(t => t.term).join(', ');
+    }
+
+    function renderDayGrid() {
+      let html = '';
+      for (let d = 1; d <= totalDays; d++) {
+        const completed = isDayCompleted(d);
+        const prog = getDayProgress(d);
+        const preview = getDayTermsPreview(d);
+        
+        html += `
+          <div class="day-card ${completed ? 'completed' : ''}" data-day="${d}">
+            ${completed ? '<div class="day-stamp">✓</div>' : ''}
+            <div class="day-number">Day ${d}</div>
+            <div class="day-terms">${preview}</div>
+            <div class="day-progress">${prog.completed}/${prog.total} 완료</div>
+          </div>
+        `;
+      }
+      document.getElementById('dayGrid').innerHTML = html;
+    }
+
+    function hideAllSections() {
+      document.getElementById('daySelectSection').classList.add('hidden');
+      document.getElementById('learnSection').classList.add('hidden');
+      document.getElementById('categorySection').classList.add('hidden');
+      document.getElementById('bookmarkSection').classList.add('hidden');
+      document.getElementById('quizSection').classList.add('hidden');
+      document.getElementById('searchSection').classList.add('hidden');
+      document.getElementById('wordListSection').classList.add('hidden');
+    }
+
+    function showDaySelect() {
+      currentView = 'daySelect';
+      hideAllSections();
+      document.getElementById('daySelectSection').classList.remove('hidden');
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('tabLearn').classList.add('active');
+      renderDayGrid();
+    }
+
+    function showLearning(day, keepExpanded = false) {
+      currentView = 'learning';
+      currentDay = day;
+      if (!keepExpanded) expandedId = null;
+      hideAllSections();
+      document.getElementById('learnSection').classList.remove('hidden');
+      renderCards();
+    }
+
+    function getDayTerms() {
+      return allTerms.slice((currentDay - 1) * 4, currentDay * 4);
+    }
+
+    function renderCards() {
+      const terms = getDayTerms();
+      document.getElementById('dayTitle').textContent = 'Day ' + currentDay;
+      document.getElementById('dayCount').textContent = terms.length + '개 용어';
+      document.getElementById('nextDayBtn').disabled = currentDay === totalDays;
+
+      const colors = ['#e74c3c', '#27ae60', '#3498db', '#9b59b6'];
+      
+      document.getElementById('cardsContainer').innerHTML = terms.map((term, i) => {
+        const isOpen = expandedId === term.docId;
+        const isLearned = progress[term.docId];
+        const isBookmarked = bookmarks[term.docId];
+        
+        return `
+          <div class="card ${isLearned ? 'learned' : ''} ${isBookmarked ? 'bookmarked' : ''}" data-id="${term.docId}">
+            <div class="card-header">
+              <div class="card-left">
+                <div class="card-num" style="background:${colors[i]}">${i + 1}</div>
+                <div>
+                  <div class="card-term">${term.term || ''}</div>
+                  <span class="card-category">${term.category || '일반'}</span>
+                </div>
+              </div>
+              <div class="card-right">
+                ${isBookmarked ? '<span class="badge-bookmark">⭐</span>' : ''}
+                ${isLearned ? '<span class="badge-done">✓ 완료</span>' : ''}
+                <span class="arrow ${isOpen ? 'open' : ''}">▼</span>
+              </div>
+            </div>
+            <div class="card-body ${isOpen ? 'open' : ''}">${renderCardContent(term)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderCardContent(term) {
+      const isLearned = progress[term.docId];
+      const isBookmarked = bookmarks[term.docId];
+      
+      let html = '';
+      if (term.definition) html += `<div class="section"><div class="section-title color-blue">📌 핵심 정의</div><p class="section-text" style="color:#fff">${term.definition}</p></div>`;
+      if (term.simpleExplanation) html += `<div class="section"><div class="section-title color-yellow">💡 쉽게 이해하기</div><p class="section-text highlight-box bg-yellow">${term.simpleExplanation}</p></div>`;
+      if (term.detailedExplanation) html += `<div class="section"><div class="section-title color-green">📖 자세히 알아보기</div><p class="section-text">${term.detailedExplanation}</p></div>`;
+      if (term.example) html += `<div class="section"><div class="section-title color-pink">📰 실제 사례</div><p class="section-text highlight-box bg-pink">${term.example}</p></div>`;
+      if (term.whyImportant) html += `<div class="section"><div class="section-title color-orange">⭐ 왜 알아야 할까?</div><p class="section-text">${term.whyImportant}</p></div>`;
+      if (term.economicFlow && term.economicFlow.steps) {
+        html += `<div class="section"><div class="flow-box"><div class="flow-title">🔄 ${term.economicFlow.title || '경제 흐름'}</div><div class="flow-steps">${term.economicFlow.steps.map((s, i, arr) => `<span class="flow-step">${s}</span>${i < arr.length - 1 ? '<span class="flow-arrow">→</span>' : ''}`).join('')}</div>${term.economicFlow.insight ? `<p class="flow-insight">💡 ${term.economicFlow.insight}</p>` : ''}</div></div>`;
+      }
+      if (term.related && term.related.length > 0) html += `<div class="section"><div class="section-title color-purple">🔗 연관 용어</div><div class="tags">${term.related.map(r => `<span class="tag">${r}</span>`).join('')}</div></div>`;
+      
+      // 액션 버튼들
+      html += `<div class="card-actions">`;
+      if (!isLearned) {
+        html += `<button class="learn-btn" data-learn="${term.docId}">✓ 학습 완료!</button>`;
+      }
+      html += `<button class="bookmark-btn ${isBookmarked ? 'active' : ''}" data-bookmark="${term.docId}">${isBookmarked ? '⭐ 북마크 해제' : '☆ 북마크'}</button>`;
+      html += `</div>`;
+      
+      return html;
+    }
+
+    function renderQuiz() {
+      const learned = allTerms.filter(t => progress[t.docId]);
+      
+      if (!quizData) {
+        document.getElementById('quizContent').innerHTML = `
+          <div class="quiz-center">
+            <div class="quiz-icon">🧠</div>
+            <h2 class="quiz-title">복습 퀴즈</h2>
+            <p class="quiz-info">학습한 용어 중 랜덤 출제</p>
+            <p class="quiz-count">학습 완료: ${learned.length}개</p>
+            <button class="learn-btn" style="max-width:200px;margin:0 auto" id="startQuizBtn">퀴즈 시작</button>
+          </div>
+        `;
+        return;
+      }
+      
+      const { question, options, selected } = quizData;
+      let optHtml = options.map(opt => {
+        let cls = 'quiz-option';
+        if (selected !== null) {
+          if (opt.docId === question.docId) cls += ' correct';
+          else if (opt.docId === selected) cls += ' wrong';
+        }
+        return `<button class="${cls}" data-option="${opt.docId}" ${selected !== null ? 'disabled' : ''}>${opt.term}</button>`;
+      }).join('');
+      
+      let resultHtml = '';
+      if (selected !== null) {
+        const isCorrect = selected === question.docId;
+        resultHtml = `<div class="quiz-result" style="color:${isCorrect ? '#00c853' : '#f44'}">${isCorrect ? '🎉 정답!' : '❌ 오답! 정답: ' + question.term}</div><div style="text-align:center"><button class="quiz-next" id="nextQuizBtn">다음 문제</button></div>`;
+      }
+      
+      document.getElementById('quizContent').innerHTML = `
+        <h3 class="quiz-label">다음 설명에 해당하는 용어는?</h3>
+        <p class="quiz-question">${question.definition}</p>
+        ${optHtml}
+        ${resultHtml}
+        <button class="quiz-end" id="endQuizBtn">퀴즈 종료</button>
+      `;
+    }
+
+    function startQuiz() {
+      const learned = allTerms.filter(t => progress[t.docId]);
+      if (learned.length < 2) { alert('최소 2개 용어를 학습하세요!'); return; }
+      const q = learned[Math.floor(Math.random() * learned.length)];
+      const others = allTerms.filter(t => t.docId !== q.docId).sort(() => Math.random() - 0.5).slice(0, 3);
+      quizData = { question: q, options: [...others, q].sort(() => Math.random() - 0.5), selected: null };
+      renderQuiz();
+    }
+
+    function renderSearch(query) {
+      const q = query.toLowerCase();
+      const filtered = q ? allTerms.filter(t => (t.term && t.term.toLowerCase().includes(q)) || (t.definition && t.definition.toLowerCase().includes(q)) || (t.category && t.category.toLowerCase().includes(q))) : allTerms.slice(0, 8);
+      document.getElementById('searchCount').textContent = q ? `검색 결과: ${filtered.length}개` : '';
+      document.getElementById('searchResults').innerHTML = filtered.map(t => {
+        const termIndex = allTerms.findIndex(at => at.docId === t.docId);
+        const dayNum = Math.floor(termIndex / 4) + 1;
+        const isBookmarked = bookmarks[t.docId];
+        return `<div class="search-item" data-docid="${t.docId}" data-day="${dayNum}" style="cursor:pointer;"><div class="search-item-header"><span class="search-item-title">${isBookmarked ? '⭐ ' : ''}${t.term}</span><span class="card-category">${t.category || '일반'}</span></div><p class="search-item-desc">${t.simpleExplanation || t.definition || ''}</p><p style="font-size:0.75rem;color:#00d4ff;margin-top:8px;">📍 Day ${dayNum}</p></div>`;
+      }).join('');
+    }
+
+    function renderWordList() {
+      let filtered = allTerms;
+      if (wordListFilter === 'completed') {
+        filtered = allTerms.filter(t => progress[t.docId]);
+      } else if (wordListFilter === 'incomplete') {
+        filtered = allTerms.filter(t => !progress[t.docId]);
+      } else if (wordListFilter === 'bookmarked') {
+        filtered = allTerms.filter(t => bookmarks[t.docId]);
+      }
+      
+      const completedCount = allTerms.filter(t => progress[t.docId]).length;
+      const incompleteCount = allTerms.length - completedCount;
+      const bookmarkedCount = allTerms.filter(t => bookmarks[t.docId]).length;
+      
+      let countText = `전체 ${allTerms.length}개`;
+      if (wordListFilter === 'completed') countText = `학습완료 ${completedCount}개`;
+      else if (wordListFilter === 'incomplete') countText = `미학습 ${incompleteCount}개`;
+      else if (wordListFilter === 'bookmarked') countText = `북마크 ${bookmarkedCount}개`;
+      
+      document.getElementById('wordListCount').textContent = countText;
+      
+      document.querySelectorAll('#wordListSection .filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === wordListFilter);
+      });
+      
+      document.getElementById('wordListResults').innerHTML = filtered.map(t => {
+        const termIndex = allTerms.findIndex(at => at.docId === t.docId);
+        const dayNum = Math.floor(termIndex / 4) + 1;
+        const isCompleted = progress[t.docId];
+        const isBookmarked = bookmarks[t.docId];
+        return `
+          <div class="wordlist-item ${isCompleted ? 'completed' : 'incomplete'} ${isBookmarked ? 'bookmarked-item' : ''}" data-docid="${t.docId}" data-day="${dayNum}">
+            <div class="wordlist-item-header">
+              <span class="wordlist-item-title">${t.term}</span>
+              <div class="wordlist-item-badges">
+                ${isBookmarked ? '<span class="wordlist-item-status bookmarked">⭐</span>' : ''}
+                <span class="wordlist-item-status ${isCompleted ? 'done' : 'notdone'}">${isCompleted ? '✓ 학습완료' : '○ 미학습'}</span>
+              </div>
+            </div>
+            <p class="wordlist-item-desc">${t.simpleExplanation || t.definition || ''}</p>
+            <p class="wordlist-item-day">📍 Day ${dayNum}</p>
+          </div>
+        `;
+      }).join('') || '<p style="text-align:center;color:#888;padding:40px;">해당하는 단어가 없습니다.</p>';
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      hideAllSections();
+      
+      if (tab === 'learn') {
+        document.getElementById('tabLearn').classList.add('active');
+        if (currentView === 'learning') {
+          document.getElementById('learnSection').classList.remove('hidden');
+        } else {
+          document.getElementById('daySelectSection').classList.remove('hidden');
+        }
+      } else if (tab === 'category') {
+        document.getElementById('tabCategory').classList.add('active');
+        document.getElementById('categorySection').classList.remove('hidden');
+        document.getElementById('categoryGridView').classList.remove('hidden');
+        document.getElementById('categoryListView').classList.add('hidden');
+        renderCategoryGrid();
+      } else if (tab === 'bookmark') {
+        document.getElementById('tabBookmark').classList.add('active');
+        document.getElementById('bookmarkSection').classList.remove('hidden');
+        renderBookmarks();
+      } else if (tab === 'wordlist') {
+        document.getElementById('tabWordList').classList.add('active');
+        document.getElementById('wordListSection').classList.remove('hidden');
+        renderWordList();
+      } else if (tab === 'quiz') {
+        document.getElementById('tabQuiz').classList.add('active');
+        document.getElementById('quizSection').classList.remove('hidden');
+        renderQuiz();
+      } else if (tab === 'search') {
+        document.getElementById('tabSearch').classList.add('active');
+        document.getElementById('searchSection').classList.remove('hidden');
+      }
+    }
+
+    // 이벤트 리스너들
+    document.getElementById('tabLearn').addEventListener('click', () => switchTab('learn'));
+    document.getElementById('tabCategory').addEventListener('click', () => switchTab('category'));
+    document.getElementById('tabBookmark').addEventListener('click', () => switchTab('bookmark'));
+    document.getElementById('tabWordList').addEventListener('click', () => switchTab('wordlist'));
+    document.getElementById('tabQuiz').addEventListener('click', () => switchTab('quiz'));
+    document.getElementById('tabSearch').addEventListener('click', () => switchTab('search'));
+    
+    document.getElementById('backToDaysBtn').addEventListener('click', showDaySelect);
+    
+    document.getElementById('nextDayBtn').addEventListener('click', () => {
+      if (currentDay < totalDays) { currentDay++; expandedId = null; renderCards(); }
+    });
+    
+    document.getElementById('searchInput').addEventListener('input', (e) => renderSearch(e.target.value));
+
+    document.getElementById('searchResults').addEventListener('click', (e) => {
+      const item = e.target.closest('.search-item');
+      if (item) {
+        const day = parseInt(item.dataset.day);
+        const docId = item.dataset.docid;
+        expandedId = docId;
+        showLearning(day, true);
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tabLearn').classList.add('active');
+        setTimeout(() => {
+          const card = document.querySelector(`.card[data-id="${docId}"]`);
+          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    });
+
+    document.getElementById('dayGrid').addEventListener('click', (e) => {
+      const dayCard = e.target.closest('.day-card');
+      if (dayCard) showLearning(parseInt(dayCard.dataset.day));
+    });
+
+    // 카테고리 이벤트
+    document.getElementById('categoryGrid').addEventListener('click', (e) => {
+      const card = e.target.closest('.category-card');
+      if (card) {
+        selectedCategory = card.dataset.category;
+        document.getElementById('categoryGridView').classList.add('hidden');
+        document.getElementById('categoryListView').classList.remove('hidden');
+        renderCategoryList(selectedCategory);
+      }
+    });
+
+    document.getElementById('categoryBackBtn').addEventListener('click', () => {
+      document.getElementById('categoryGridView').classList.remove('hidden');
+      document.getElementById('categoryListView').classList.add('hidden');
+      renderCategoryGrid();
+    });
+
+    document.getElementById('categoryListResults').addEventListener('click', (e) => {
+      const item = e.target.closest('.wordlist-item');
+      if (item) {
+        const day = parseInt(item.dataset.day);
+        const docId = item.dataset.docid;
+        expandedId = docId;
+        showLearning(day, true);
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tabLearn').classList.add('active');
+        setTimeout(() => {
+          const card = document.querySelector(`.card[data-id="${docId}"]`);
+          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    });
+
+    // 북마크 섹션 이벤트
+    document.getElementById('bookmarkResults').addEventListener('click', (e) => {
+      const item = e.target.closest('.wordlist-item');
+      if (item) {
+        const day = parseInt(item.dataset.day);
+        const docId = item.dataset.docid;
+        expandedId = docId;
+        showLearning(day, true);
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tabLearn').classList.add('active');
+        setTimeout(() => {
+          const card = document.querySelector(`.card[data-id="${docId}"]`);
+          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    });
+
+    document.getElementById('wordListSection').addEventListener('click', (e) => {
+      const filterBtn = e.target.closest('.filter-btn');
+      if (filterBtn) {
+        wordListFilter = filterBtn.dataset.filter;
+        renderWordList();
+        return;
+      }
+      
+      const item = e.target.closest('.wordlist-item');
+      if (item) {
+        const day = parseInt(item.dataset.day);
+        const docId = item.dataset.docid;
+        expandedId = docId;
+        showLearning(day, true);
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tabLearn').classList.add('active');
+        setTimeout(() => {
+          const card = document.querySelector(`.card[data-id="${docId}"]`);
+          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    });
+
+    document.getElementById('cardsContainer').addEventListener('click', (e) => {
+      const header = e.target.closest('.card-header');
+      if (header) {
+        const id = header.closest('.card').dataset.id;
+        expandedId = (expandedId === id) ? null : id;
+        renderCards();
+        return;
+      }
+      
+      const learnBtn = e.target.closest('.learn-btn[data-learn]');
+      if (learnBtn) {
+        const termId = learnBtn.dataset.learn;
+        const isNewComplete = !progress[termId];
+        progress[termId] = true;
+        
+        if (isNewComplete) {
+          updateStreakOnComplete();
+        }
+        
+        saveProgress();
+        renderCards();
+        return;
+      }
+      
+      const bookmarkBtn = e.target.closest('.bookmark-btn[data-bookmark]');
+      if (bookmarkBtn) {
+        const termId = bookmarkBtn.dataset.bookmark;
+        toggleBookmark(termId);
+        renderCards();
+        return;
+      }
+    });
+
+    document.getElementById('quizContent').addEventListener('click', (e) => {
+      if (e.target.id === 'startQuizBtn') { startQuiz(); return; }
+      if (e.target.id === 'nextQuizBtn') { startQuiz(); return; }
+      if (e.target.id === 'endQuizBtn') { quizData = null; renderQuiz(); return; }
+      const optBtn = e.target.closest('.quiz-option');
+      if (optBtn && quizData && quizData.selected === null) {
+        quizData.selected = optBtn.dataset.option;
+        renderQuiz();
+      }
+    });
+
+    // 딥링크 처리 - URL 파라미터로 특정 Day나 용어로 이동
+    function handleDeepLink() {
+      const params = new URLSearchParams(window.location.search);
+      
+      // ?day=32 형식
+      const dayParam = params.get('day');
+      if (dayParam) {
+        const day = parseInt(dayParam);
+        if (day >= 1 && day <= totalDays) {
+          setTimeout(() => {
+            showLearning(day);
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tabLearn').classList.add('active');
+          }, 500);
+          return;
+        }
+      }
+      
+      // ?term=기준금리 형식
+      const termParam = params.get('term');
+      if (termParam) {
+        const term = allTerms.find(t => t.term === termParam);
+        if (term) {
+          const termIndex = allTerms.findIndex(t => t.docId === term.docId);
+          const day = Math.floor(termIndex / 4) + 1;
+          expandedId = term.docId;
+          setTimeout(() => {
+            showLearning(day, true);
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tabLearn').classList.add('active');
+            setTimeout(() => {
+              const card = document.querySelector(`.card[data-id="${term.docId}"]`);
+              if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+          }, 500);
+          return;
+        }
+      }
+      
+      // ?id=125 형식
+      const idParam = params.get('id');
+      if (idParam) {
+        const term = allTerms.find(t => t.docId === idParam || t.id === parseInt(idParam));
+        if (term) {
+          const termIndex = allTerms.findIndex(t => t.docId === term.docId);
+          const day = Math.floor(termIndex / 4) + 1;
+          expandedId = term.docId;
+          setTimeout(() => {
+            showLearning(day, true);
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tabLearn').classList.add('active');
+            setTimeout(() => {
+              const card = document.querySelector(`.card[data-id="${term.docId}"]`);
+              if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+          }, 500);
+          return;
+        }
+      }
+    }
+
+    // 원래 loadTerms 함수 끝에 딥링크 처리 추가
+    const originalLoadTerms = loadTerms;
+    loadTerms = async function() {
+      await originalLoadTerms();
+      handleDeepLink();
+    };
+  </script>
+</body>
+</html>
